@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: hm-dp
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/hm-dp
+    username: root
+    password: cjz20060820
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      password: cjz20060820
+      # 连接池配置
+      lettuce:
+        pool:
+          max-active: 10 # 最大连接数
+          max-idle: 10 # 最大空闲数
+          min-idle: 1 # 最小空闲数
+          time-between-eviction-runs: 10s # 连接池空闲连接回收时间间隔
+
+  jackson:
+    default-property-inclusion: non_null # JSON序列化时，不包含值为null的字段
+
+mybatis-plus:
+  type-aliases-package: com.junzhecai.hmdp.model.entity
+
+logging:
+  # 日志级别
+  level:
+    com.junzhecai: debug
