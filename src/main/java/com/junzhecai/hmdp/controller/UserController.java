@@ -1,10 +1,13 @@
 package com.junzhecai.hmdp.controller;
 
+import com.junzhecai.hmdp.controller.Support.UserVoAssembler;
 import com.junzhecai.hmdp.model.dto.LoginFormDTO;
 import com.junzhecai.hmdp.model.dto.Result;
+import com.junzhecai.hmdp.model.dto.UserDTO;
 import com.junzhecai.hmdp.model.entity.UserInfo;
 import com.junzhecai.hmdp.service.UserInfoService;
 import com.junzhecai.hmdp.service.UserService;
+import com.junzhecai.hmdp.utils.UserHolder;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,24 +23,29 @@ public class UserController {
     @Autowired
     private UserInfoService userInfoService;
 
+    @Autowired
+    private UserVoAssembler userVoAssembler;
+
+    // TODO 自定义注解实现校验器功能
+
     /**
      * 发送手机验证码
      */
-    @PostMapping("code")
+    @PostMapping("/code")
     public Result sendCode(@RequestParam("phone") String phone, HttpSession session) {
-        // TODO 发送短信验证码并保存验证码
-        return Result.fail("功能未完成");
+        // 发送短信验证码并保存验证码
+        return userService.sendCode(phone, session);
     }
 
     /**
-     * 登录功能
+     * 登录注册功能，如果手机号已存在，则登录；如果手机号不存在，则创建新用户
      *
      * @param loginForm 登录参数，包含手机号、验证码；或者手机号、密码
      */
     @PostMapping("/login")
     public Result login(@RequestBody LoginFormDTO loginForm, HttpSession session) {
-        // TODO 实现登录功能
-        return Result.fail("功能未完成");
+        // 实现登录功能
+        return userService.loginOrRegister(loginForm, session);
     }
 
     /**
@@ -53,8 +61,9 @@ public class UserController {
 
     @GetMapping("/me")
     public Result me() {
-        // TODO 获取当前登录的用户并返回
-        return Result.fail("功能未完成");
+        // 获取当前登录的用户并返回
+        UserDTO user = UserHolder.getUser();
+        return Result.ok(userVoAssembler.toUserVO(user));
     }
 
     @GetMapping("/info/{id}")
