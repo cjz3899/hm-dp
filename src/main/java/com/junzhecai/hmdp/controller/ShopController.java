@@ -3,10 +3,13 @@ package com.junzhecai.hmdp.controller;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.junzhecai.hmdp.model.dto.Result;
+import com.junzhecai.hmdp.model.dto.ShopDTO;
+import com.junzhecai.hmdp.model.dto.ShopValidateGruop;
 import com.junzhecai.hmdp.model.entity.Shop;
 import com.junzhecai.hmdp.service.ShopService;
 import com.junzhecai.hmdp.utils.SystemConstants;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -24,34 +27,32 @@ public class ShopController {
      */
     @GetMapping("/{id}")
     public Result queryShopById(@PathVariable Long id) {
-        return Result.ok(shopService.queryShopById(id));
+        return shopService.queryShopById(id);
     }
 
     /**
      * 新增商铺信息
      *
-     * @param shop 商铺数据
+     * @param shopDTO 商铺数据
      * @return 商铺id
      */
     @PostMapping
-    public Result saveShop(@RequestBody Shop shop) {
+    public Result saveShop(@Validated(ShopValidateGruop.SaveGroup.class) @RequestBody ShopDTO shopDTO) {
         // 写入数据库
-        shopService.save(shop);
+        shopService.save(shopDTO);
         // 返回店铺id
-        return Result.ok(shop.getId());
+        return Result.ok(shopDTO.getId());
     }
 
     /**
      * 更新商铺信息
      *
-     * @param shop 商铺数据
+     * @param shopDTO 商铺数据
      * @return 无
      */
     @PutMapping
-    public Result updateShop(@RequestBody Shop shop) {
-        // 写入数据库
-        shopService.updateById(shop);
-        return Result.ok();
+    public Result updateShop(@Validated(ShopValidateGruop.UpdateGroup.class) @RequestBody ShopDTO shopDTO) {
+        return shopService.updateShopById(shopDTO);
     }
 
     /**
