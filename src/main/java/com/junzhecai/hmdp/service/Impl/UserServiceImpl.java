@@ -66,7 +66,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 .setIgnoreNullValue(true)
                 .setFieldValueEditor((fieldName, fieldValue) -> fieldValue.toString()));*/
         Map<String, String> userMap = userDTOMapSerializer.serialize(userDTO);
-        stringRedisTemplate.opsForHash().putAll(LOGIN_USER_KEY + token, userMap);
+        String key = LOGIN_USER_KEY + token;
+        stringRedisTemplate.opsForHash().putAll(key, userMap);
+        stringRedisTemplate.expire(key, LOGIN_USER_TTL, TimeUnit.MINUTES);
         return Result.ok(token);
     }
 
