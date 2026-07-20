@@ -8,9 +8,11 @@ import com.junzhecai.hmdp.model.entity.VoucherOrder;
 import com.junzhecai.hmdp.service.SeckillVoucherService;
 import com.junzhecai.hmdp.service.VoucherOrderService;
 import com.junzhecai.hmdp.utils.RedisIdWorker;
+import com.junzhecai.hmdp.utils.SimpleRedisLock;
 import com.junzhecai.hmdp.utils.UserHolder;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,6 +24,8 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     private SeckillVoucherService seckillVoucherService;
     @Autowired
     private RedisIdWorker redisIdWorker;
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     public Result seckillVoucher(Long voucherId) {
@@ -38,15 +42,29 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         }
 
         Long userId = UserHolder.getUser().getId();
-        // 锁必须包住整个下单流程，不能只放 createVoucherOrder 里面
-        // 打个比方：如果不把"查库存 + 扣库存 + 查订单 + 建订单"用同一把锁串起来，
-        // 就会出现两个线程先后查到"还有1件"，都冲进去每人抢一件，结果库存变 -1，一人买了两单
-        // intern() 保证同一 userId 的字符串是同一个对象，锁才锁得住
-        synchronized (userId.toString().intern()) {
+        //基于Redis的分布式锁（解决集群环境下的重复下单问题）
+        //创建锁对象
+        SimpleRedisLock lock = new SimpleRedisLock("order" + userId, stringRedisTemplate);
+        boolean isLock = lock.tryLock(1200);
+        if (!isLock) {
+            //获取锁失败
+            return Result.fail("请勿重复下单");
+        }
+        try {
+            VoucherOrderService proxy = (VoucherOrderService) AopContext.currentProxy();
+            return proxy.createVoucherOrder(voucherId);
+        } finally {
+            lock.unlock();
+        }
+        /*锁必须包住整个下单流程，不能只放 createVoucherOrder 里面
+        打个比方：如果不把 "查库存 + 扣库存 + 查订单 + 建订单" 用同一把锁串起来，
+        就会出现两个线程先后查到 "还有1件"，都冲进去每人抢一件，结果库存变 - 1，一人买了两单
+        intern() 保证同一 userId 的字符串是同一个对象，锁才锁得住*/
+        /*synchronized (userId.toString().intern()) {
             // 获取代理对象
             VoucherOrderService proxy = (VoucherOrderService) AopContext.currentProxy();
             return proxy.createVoucherOrder(voucherId);
-        }
+        }*/
     }
 
     @Transactional
