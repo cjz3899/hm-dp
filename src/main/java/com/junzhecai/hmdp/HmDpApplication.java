@@ -9,7 +9,6 @@ import org.springframework.context.annotation.EnableAspectJAutoProxy;
 @MapperScan("com.junzhecai.hmdp.mapper")
 @SpringBootApplication
 public class HmDpApplication {
-
     public static void main(String[] args) {
         SpringApplication.run(HmDpApplication.class, args);
     }

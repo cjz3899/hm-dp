@@ -8,15 +8,20 @@ import com.junzhecai.hmdp.model.entity.Voucher;
 import com.junzhecai.hmdp.service.SeckillVoucherService;
 import com.junzhecai.hmdp.service.VoucherService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
+import static com.junzhecai.hmdp.utils.RedisConstants.SECKILL_STOCK_KEY;
+
 @Service
 public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> implements VoucherService {
     @Autowired
     private SeckillVoucherService seckillVoucherService;
+    @Autowired
+    private StringRedisTemplate stringRedisTemplate;
 
     @Override
     @Transactional//事务管理，确保数据的一致性
@@ -30,6 +35,7 @@ public class VoucherServiceImpl extends ServiceImpl<VoucherMapper, Voucher> impl
         seckillVoucher.setBeginTime(voucher.getBeginTime());
         seckillVoucher.setEndTime(voucher.getEndTime());
         seckillVoucherService.save(seckillVoucher);
+        stringRedisTemplate.opsForValue().set(SECKILL_STOCK_KEY + voucher.getId(), voucher.getStock().toString());
     }
 
     @Override

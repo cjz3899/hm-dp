@@ -122,7 +122,7 @@ public class CacheClient {
             return null;
         }
         //命中缓存
-        //将json反序列化为RedisData对象，再把RedisData对象中的data字段反序列化为ShopVO对象
+        //将json反序列化为RedisData对象，再把RedisData对象中的data字段反序列化为R对象
         RedisData redisData = JSONUtil.toBean(json, RedisData.class);
         R r = JSONUtil.toBean((JSONObject) redisData.getData(), type);
         //判断是否过期
