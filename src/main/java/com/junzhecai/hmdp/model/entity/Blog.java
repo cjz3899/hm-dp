@@ -20,7 +20,7 @@ public class Blog implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
-    @TableId(value = "id",type = IdType.AUTO)
+    @TableId(value = "id", type = IdType.AUTO)
     private Long id;
     private Long shopId;
     private Long userId;
@@ -29,7 +29,7 @@ public class Blog implements Serializable {
     @TableField(exist = false)
     private String name;
     @TableField(exist = false)
-    private Boolean isLike;
+    private Boolean isLike;//告诉前端是否点赞
     private String title;
     private String images;
     private String content;
