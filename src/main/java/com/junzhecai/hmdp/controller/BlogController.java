@@ -1,9 +1,11 @@
 package com.junzhecai.hmdp.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.junzhecai.hmdp.controller.Support.UserVoAssembler;
 import com.junzhecai.hmdp.model.dto.Result;
 import com.junzhecai.hmdp.model.dto.UserDTO;
 import com.junzhecai.hmdp.model.entity.Blog;
+import com.junzhecai.hmdp.model.entity.User;
 import com.junzhecai.hmdp.service.BlogService;
 import com.junzhecai.hmdp.utils.SystemConstants;
 import com.junzhecai.hmdp.utils.UserHolder;
@@ -18,6 +20,8 @@ public class BlogController {
 
     @Autowired
     private BlogService blogService;
+    @Autowired
+    private UserVoAssembler userVoAssembler;
 
     @PostMapping
     public Result saveBlog(@RequestBody Blog blog) {
@@ -55,5 +59,11 @@ public class BlogController {
     @GetMapping("/{id}")
     public Result queryBlogById(@PathVariable("id") Long id) {
         return blogService.queryBlogById(id);
+    }
+
+    @GetMapping("/likes/{id}")
+    public Result queryBlogLikes(@PathVariable("id") Long id) {
+        List<User> users = blogService.queryBlogLikes(id);
+        return Result.ok(userVoAssembler.toUserVOList(users));
     }
 }
