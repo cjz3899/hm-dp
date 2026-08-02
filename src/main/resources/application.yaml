@@ -24,6 +24,7 @@ spring:
     default-property-inclusion: non_null # JSON序列化时，不包含值为null的字段
 
 mybatis-plus:
+  mapper-locations: classpath*:com/junzhecai/hmdp/mapper/*.xml
   type-aliases-package: com.junzhecai.hmdp.model.entity
 
 logging:

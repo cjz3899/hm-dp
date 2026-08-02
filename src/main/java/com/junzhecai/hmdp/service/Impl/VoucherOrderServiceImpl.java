@@ -17,6 +17,8 @@ import org.redisson.api.RedissonClient;
 import org.springframework.aop.framework.AopContext;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.event.ContextClosedEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.data.redis.connection.stream.*;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -47,6 +49,9 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
 
     // 单线程线程池：从阻塞队列中取出订单并写入数据库
     private static final ExecutorService SECKILL_ORDER_EXECUTOR = Executors.newSingleThreadExecutor();
+
+    // 消费者线程运行标志：应用关闭时置为 false 以退出无限循环（不能依赖线程中断标志，Lettuce 会清除它）
+    private volatile boolean consumerRunning = true;
 
     // 自注入代理对象（@Lazy 避免循环依赖）：用于调用 @Transactional 方法，解决内部调用事务失效问题
     @Lazy
@@ -91,9 +96,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
     @PostConstruct
     private void init() {
         String queueName = "stream.orders";
+        // 确保 Stream 与消费组存在，否则 XREADGROUP 会报 NOGROUP 错误导致消费者异常
+        ensureStreamAndGroup(queueName);
         // 启动单线程消费者，不断从阻塞队列中取出订单并写入数据库
         SECKILL_ORDER_EXECUTOR.submit(() -> {
-            while (true) {
+            while (consumerRunning) {
                 try {
                     //获取消息队列中的订单信息 xreadgroup group g1 c1 count 1 block 2000 streams stream.orders
                     List<MapRecord<String, Object, Object>> list = stringRedisTemplate.opsForStream().read(
@@ -113,6 +120,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                     //ack确认 sack stream.orders g1 id
                     stringRedisTemplate.opsForStream().acknowledge(queueName, "g1", record.getId());
                 } catch (Exception e) {
+                    //应用关闭时连接工厂已被销毁，不再处理消息，直接退出
+                    if (!consumerRunning) {
+                        log.info("秒杀订单消费者线程已停止，退出循环");
+                        return;
+                    }
                     //其他异常只记日志，不退出循环，保证消费者持续存活
                     log.error("处理秒杀订单异常", e);
                     //处理未确认的消息列表
@@ -148,8 +160,48 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         return Result.ok(orderId);
     }
 
+    /**
+     * 确保 Stream 与消费组存在（幂等），避免 XREADGROUP 报 NOGROUP 错误
+     */
+    private void ensureStreamAndGroup(String queueName) {
+        try {
+            // XADD 占位消息会自动创建 Stream，随后删除占位消息（Stream 本身保留）
+            RecordId initId = stringRedisTemplate.opsForStream()
+                    .add(StreamRecords.string(Map.of("init", "1")).withStreamKey(queueName));
+            if (initId != null) {
+                stringRedisTemplate.opsForStream().delete(queueName, initId.getValue());
+            }
+        } catch (Exception e) {
+            log.warn("初始化 Stream 失败", e);
+        }
+        try {
+            // 创建消费组（消费组已存在时会抛 BUSYGROUP 异常，忽略即可）
+            stringRedisTemplate.opsForStream().createGroup(queueName, "g1");
+        } catch (Exception e) {
+            log.info("消费组已存在，跳过创建: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 应用关闭时立即中断消费者线程（ContextClosedEvent 在连接工厂停止之前发布，保证线程先退出）
+     */
+    @EventListener(ContextClosedEvent.class)
+    public void onContextClosed() {
+        consumerRunning = false;
+        SECKILL_ORDER_EXECUTOR.shutdownNow();
+    }
+
+    /**
+     * Bean 销毁时兜底关闭线程池，避免应用关闭后线程仍访问已销毁的 Redis 连接
+     */
+    @PreDestroy
+    public void destroy() {
+        consumerRunning = false;
+        SECKILL_ORDER_EXECUTOR.shutdownNow();
+    }
+
     private void handlerPendingList(String queueName) {
-        while (true) {
+        while (consumerRunning) {
             try {
                 //获取pending-list中的订单信息 xreadgroup group g1 c1 count 1 streams stream.orders 0
                 List<MapRecord<String, Object, Object>> list = stringRedisTemplate.opsForStream().read(
@@ -170,6 +222,11 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
                 //ack确认 sack stream.orders g1 id
                 stringRedisTemplate.opsForStream().acknowledge(queueName, "g1", record.getId());
             } catch (Exception e) {
+                //应用关闭时连接工厂已被销毁，不再处理消息，退出循环
+                if (!consumerRunning) {
+                    log.info("处理pending-list消息线程已停止，退出循环");
+                    break;
+                }
                 //其他异常只记日志，不退出循环，保证消费者持续存活
                 log.error("处理pending-list消息异常", e);
             }
@@ -275,13 +332,6 @@ public class VoucherOrderServiceImpl extends ServiceImpl<VoucherOrderMapper, Vou
         save(voucherOrder);
     }
 
-    /**
-     * 销毁前关闭线程池，确保应用优雅停机
-     */
-    @PreDestroy
-    private void destroy() {
-        SECKILL_ORDER_EXECUTOR.shutdown();
-    }
     /*@Override
     public Result seckillVoucher(Long voucherId) {
         SeckillVoucher voucher = seckillVoucherService.getById(voucherId);
