@@ -12,5 +12,7 @@ import java.util.List;
 public abstract class UserVoAssembler {
     public abstract UserVO toUserVO(UserDTO userDTO);
 
+    public abstract UserVO toUserVO(User user);
+
     public abstract List<UserVO> toUserVOList(List<User> users);
 }

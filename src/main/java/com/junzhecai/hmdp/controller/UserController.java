@@ -4,6 +4,7 @@ import com.junzhecai.hmdp.controller.Support.UserVoAssembler;
 import com.junzhecai.hmdp.model.dto.LoginFormDTO;
 import com.junzhecai.hmdp.model.dto.Result;
 import com.junzhecai.hmdp.model.dto.UserDTO;
+import com.junzhecai.hmdp.model.entity.User;
 import com.junzhecai.hmdp.model.entity.UserInfo;
 import com.junzhecai.hmdp.service.UserInfoService;
 import com.junzhecai.hmdp.service.UserService;
@@ -78,6 +79,16 @@ public class UserController {
         info.setUpdateTime(null);
         // 返回
         return Result.ok(info);
+    }
+
+    @GetMapping("/{id}")
+    public Result queryUserById(@PathVariable("id") Long userId) {
+        // 查询详情
+        User user = userService.getById(userId);
+        if (user == null) {
+            return Result.ok();
+        }
+        return Result.ok(userVoAssembler.toUserVO(user));
     }
 }
 

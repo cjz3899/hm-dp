@@ -114,6 +114,23 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements Bl
                 .toList();
     }
 
+    @Override
+    public List<User> followCommons(Long id) {
+        Long userId = UserHolder.getUser().getId();
+        String key = "follows:" + userId;
+        //当前用户关注的用户
+        String key2 = "follows:" + id;
+        //获取交集
+        Set<String> intersect = stringRedisTemplate.opsForSet().intersect(key, key2);
+        if (intersect == null || intersect.isEmpty()) {
+            return Collections.emptyList();
+        }
+        //解析用户id
+        List<Long> ids = intersect.stream().map(Long::valueOf).toList();
+        //查询用户
+        return userService.listByIds(ids);
+    }
+
     private void queryBlogUser(Blog blog) {
         Long userId = blog.getUserId();
         User user = userService.getById(userId);
