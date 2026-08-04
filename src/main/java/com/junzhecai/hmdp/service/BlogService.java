@@ -17,4 +17,7 @@ public interface BlogService extends IService<Blog> {
     List<User> queryBlogLikes(Long id);
 
     List<User> followCommons(Long id);
+
+    Result saveBlog(Blog blog);
+
 }

@@ -7,8 +7,10 @@ import com.junzhecai.hmdp.mapper.BlogMapper;
 import com.junzhecai.hmdp.model.dto.Result;
 import com.junzhecai.hmdp.model.dto.UserDTO;
 import com.junzhecai.hmdp.model.entity.Blog;
+import com.junzhecai.hmdp.model.entity.Follow;
 import com.junzhecai.hmdp.model.entity.User;
 import com.junzhecai.hmdp.service.BlogService;
+import com.junzhecai.hmdp.service.FollowService;
 import com.junzhecai.hmdp.service.UserService;
 import com.junzhecai.hmdp.utils.SystemConstants;
 import com.junzhecai.hmdp.utils.UserHolder;
@@ -28,6 +30,8 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements Bl
     private UserService userService;
     @Autowired
     private StringRedisTemplate stringRedisTemplate;
+    @Autowired
+    private FollowService followService;
 
     @Override
     public Result queryHotBlog(Integer current) {
@@ -129,6 +133,30 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements Bl
         List<Long> ids = intersect.stream().map(Long::valueOf).toList();
         //查询用户
         return userService.listByIds(ids);
+    }
+
+    @Override
+    public Result saveBlog(Blog blog) {
+        //获取登录用户
+        UserDTO user = UserHolder.getUser();
+        blog.setUserId(user.getId());
+        //保存探店博文
+        boolean isSuccess = save(blog);
+        if (!isSuccess) {
+            return Result.fail("新增笔记失败！");
+        }
+        //查询笔记作者的所有粉丝
+        List<Follow> follows = followService.query().eq("follow_user_id", user.getId()).list();
+        //推送笔记id给所有粉丝
+        for (Follow follow : follows) {
+            //获取粉丝id
+            Long userId = follow.getUserId();
+            String key = "feed:" + userId;
+            //推送
+            stringRedisTemplate.opsForZSet().add(key, blog.getId().toString(), System.currentTimeMillis());
+        }
+        //返回id
+        return Result.ok(blog.getId());
     }
 
     private void queryBlogUser(Blog blog) {
