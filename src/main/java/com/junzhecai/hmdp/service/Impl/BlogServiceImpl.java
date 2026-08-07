@@ -9,6 +9,7 @@ import com.junzhecai.hmdp.model.dto.UserDTO;
 import com.junzhecai.hmdp.model.entity.Blog;
 import com.junzhecai.hmdp.model.entity.Follow;
 import com.junzhecai.hmdp.model.entity.User;
+import com.junzhecai.hmdp.model.vo.ScrollResult;
 import com.junzhecai.hmdp.service.BlogService;
 import com.junzhecai.hmdp.service.FollowService;
 import com.junzhecai.hmdp.service.UserService;
@@ -16,13 +17,16 @@ import com.junzhecai.hmdp.utils.SystemConstants;
 import com.junzhecai.hmdp.utils.UserHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
 
 import static com.junzhecai.hmdp.utils.RedisConstants.BLOG_LIKED_KEY;
+import static com.junzhecai.hmdp.utils.RedisConstants.FEED_KEY;
 
 @Service
 public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements BlogService {
@@ -110,7 +114,7 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements Bl
         //解析用户id
         List<Long> ids = top5.stream().map(Long::valueOf).toList();
         String idsStr = StrUtil.join(",", ids);
-        //查询用户 where id in (?,?) oreder by field(id,?,?)
+        //查询用户 where id in (3,5) oreder by field(id,5,3)
         //根据给定顺序显示
         return userService.query()
                 .in("id", ids).last("order by field(id," + idsStr + ")").list()
@@ -151,12 +155,61 @@ public class BlogServiceImpl extends ServiceImpl<BlogMapper, Blog> implements Bl
         for (Follow follow : follows) {
             //获取粉丝id
             Long userId = follow.getUserId();
-            String key = "feed:" + userId;
+            String key = FEED_KEY + userId;
             //推送
             stringRedisTemplate.opsForZSet().add(key, blog.getId().toString(), System.currentTimeMillis());
         }
         //返回id
         return Result.ok(blog.getId());
+    }
+
+    @Override
+    public Result queryBlogOfFollow(Long max, Integer offset) {
+        Long userId = UserHolder.getUser().getId();
+        //查询收件箱 ZREVRANGEBYSCORE key Max Min LIMIT offset count
+        String key = FEED_KEY + userId;
+        Set<ZSetOperations.TypedTuple<String>> typedTuples = stringRedisTemplate
+                .opsForZSet()
+                .reverseRangeByScoreWithScores(key, 0, max, offset, 2);
+        if (typedTuples == null || typedTuples.isEmpty()) {
+            return Result.ok();
+        }
+        //解析数据：blogId、minTime（时间戳）、offset
+        List<Long> ids = new ArrayList<>(typedTuples.size());
+        long minTime = 0;
+        int os = 1;
+        //value：id，score：时间戳
+        for (ZSetOperations.TypedTuple<String> tuple : typedTuples) {
+            //获取id
+            ids.add(Long.valueOf(tuple.getValue()));
+            long time = tuple.getScore().longValue();
+            //找到时间戳对应的offset
+            if (time == minTime) {
+                os++;
+            } else {
+                minTime = time;
+                os = 1;
+            }
+        }
+        //根据id查询blog
+        String idsStr = StrUtil.join(",", ids);
+        List<Blog> blogs = query()
+                .in("id", ids)
+                .last("order by field(id," + idsStr + ")").list();
+
+        for (Blog blog : blogs) {
+            //查询blog的用户
+            queryBlogUser(blog);
+            //查询blog是否被点赞
+            isBlogLiked(blog);
+        }
+        
+        //封装
+        ScrollResult scrollResult = new ScrollResult();
+        scrollResult.setList(blogs);
+        scrollResult.setMinTime(minTime);
+        scrollResult.setOffset(os);
+        return Result.ok(scrollResult);
     }
 
     private void queryBlogUser(Blog blog) {

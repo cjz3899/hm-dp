@@ -1,4 +1,4 @@
-package com.junzhecai.hmdp.model.dto;
+package com.junzhecai.hmdp.model.vo;
 
 import lombok.Data;
 
