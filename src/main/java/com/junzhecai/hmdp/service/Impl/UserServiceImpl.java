@@ -72,6 +72,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         return Result.ok(token);
     }
 
+    @Override
+    public Result logout(String token) {
+        stringRedisTemplate.delete(LOGIN_USER_KEY + token);
+        return Result.ok();
+    }
+
     private User createUserWithPhone(String phone) {
         User user = new User();
         user.setPhone(phone);

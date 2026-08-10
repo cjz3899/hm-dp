@@ -52,12 +52,12 @@ public class UserController {
     /**
      * 登出功能
      *
-     * @return 无
+     * @param token 登录时生成的token
+     * @return 成功或失败
      */
     @PostMapping("/logout")
-    public Result logout() {
-        // TODO 实现登出功能
-        return Result.fail("功能未完成");
+    public Result logout(@RequestParam("authorization") String token) {
+        return userService.logout(token);
     }
 
     @GetMapping("/me")
@@ -90,5 +90,7 @@ public class UserController {
         }
         return Result.ok(userVoAssembler.toUserVO(user));
     }
+
+
 }
 

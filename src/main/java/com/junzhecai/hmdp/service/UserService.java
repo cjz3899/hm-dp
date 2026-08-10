@@ -10,4 +10,6 @@ public interface UserService extends IService<User> {
     Result sendCode(String phone, HttpSession session);
 
     Result loginOrRegister(LoginFormDTO loginForm, HttpSession session);
+
+    Result logout(String token);
 }
