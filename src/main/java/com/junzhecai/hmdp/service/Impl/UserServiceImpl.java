@@ -12,12 +12,15 @@ import com.junzhecai.hmdp.serializer.UserDTOMapSerializer;
 import com.junzhecai.hmdp.service.Impl.support.UserAssembler;
 import com.junzhecai.hmdp.service.UserService;
 import com.junzhecai.hmdp.utils.RegexUtils;
+import com.junzhecai.hmdp.utils.UserHolder;
 import jakarta.servlet.http.HttpSession;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -75,6 +78,18 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public Result logout(String token) {
         stringRedisTemplate.delete(LOGIN_USER_KEY + token);
+        return Result.ok();
+    }
+
+    @Override
+    public Result sign() {
+        Long userId = UserHolder.getUser().getId();
+        LocalDateTime now = LocalDateTime.now();
+        //拼接key
+        String keySuffix = now.format(DateTimeFormatter.ofPattern("yyyyMM"));
+        String key = USER_SIGN_KEY + userId + keySuffix;
+        int dayOfMonth = now.getDayOfMonth();
+        stringRedisTemplate.opsForValue().setBit(key, dayOfMonth - 1, true);
         return Result.ok();
     }
 

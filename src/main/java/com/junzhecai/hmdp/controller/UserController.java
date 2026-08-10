@@ -91,6 +91,9 @@ public class UserController {
         return Result.ok(userVoAssembler.toUserVO(user));
     }
 
-
+    @PostMapping("/sign")
+    public Result sign() {
+        return userService.sign();
+    }
 }
 
