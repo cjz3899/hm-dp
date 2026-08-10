@@ -38,10 +38,7 @@ public class ShopController {
      */
     @PostMapping
     public Result saveShop(@Validated(ShopValidateGruop.SaveGroup.class) @RequestBody ShopDTO shopDTO) {
-        // 写入数据库
-        shopService.save(shopDTO);
-        // 返回店铺id
-        return Result.ok(shopDTO.getId());
+        return shopService.save(shopDTO);
     }
 
     /**
@@ -65,14 +62,12 @@ public class ShopController {
     @GetMapping("/of/type")
     public Result queryShopByType(
             @RequestParam("typeId") Integer typeId,
-            @RequestParam(value = "current", defaultValue = "1") Integer current
-    ) {
-        // 根据类型分页查询
-        Page<Shop> page = shopService.query()
-                .eq("type_id", typeId)
-                .page(new Page<>(current, SystemConstants.DEFAULT_PAGE_SIZE));
-        // 返回数据
-        return Result.ok(page.getRecords());
+            @RequestParam(value = "current", defaultValue = "1") Integer current,
+            @RequestParam(value = "x", required = false) Double x,
+            @RequestParam(value = "y", required = false) Double y) {
+        {
+            return shopService.queryShopByType(typeId, current, x, y);
+        }
     }
 
     /**

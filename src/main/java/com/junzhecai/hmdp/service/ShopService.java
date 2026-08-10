@@ -10,5 +10,8 @@ public interface ShopService extends IService<Shop> {
 
     Result updateShopById(ShopDTO shopDTO);
 
-    void save(ShopDTO shopDTO);
+    Result save(ShopDTO shopDTO);
+
+    Result queryShopByType(Integer typeId, Integer current, Double x, Double y);
+
 }
