@@ -14,4 +14,6 @@ public interface UserService extends IService<User> {
     Result logout(String token);
 
     Result sign();
+
+    Result signCount();
 }
